@@ -7,6 +7,7 @@ import BigNumber from 'bignumber.js';
 import CopyableAddress from '../tools/CopyableAddress';
 
 const InsuranceCard = ({ 
+  isEmployee,
   insurance, 
   index, 
   symbol, 
@@ -48,7 +49,12 @@ const InsuranceCard = ({
       <CardHeader bg={useColorModeValue('blue.50', 'blue.900')} py={4}>
         <HStack justify="space-between" width="100%">
           <VStack align="start" spacing={0}>
-            <Heading size="md" color={headingColor}>{insurance.employeeName || _t("未命名员工", "Unnamed Employee")}</Heading>
+            {
+              isEmployee ? 
+              <Heading size="md" color={headingColor}>{(insurance.companyName + ' #' + insurance.companyId) || _t("未命名员工", "Unnamed Employee")}</Heading>
+              :
+              <Heading size="md" color={headingColor}>{insurance.employeeName || _t("未命名员工", "Unnamed Employee")}</Heading>
+            }
             <Text fontSize="sm" color={headingColor}>{_t("保单", "Policy")} #{index + 1}</Text>
           </VStack>
           <Badge colorScheme={insurance.isContractActive ? "green" : "red"} fontSize="0.8em" py={1} px={2}>

@@ -22,6 +22,7 @@
     "@wagmi/core": "^2.13.8",
     "bignumber.js": "^9.1.2",
     "bootstrap": "^5.3.3",
+    "crypto-js": "^4.2.0",
     "framer-motion": "^11.11.8",
     "next": "^13.5.7",
     "react": "^18.3.1",

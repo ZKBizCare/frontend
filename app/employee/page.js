@@ -20,10 +20,21 @@ import {
   Input,
   useDisclosure,
   Text,
-  HStack
+  HStack,
+  useToast,
+  InputGroup,
+  InputRightElement,
+  Progress
 } from '@chakra-ui/react';
 import InsuranceCard from '../components/InsuranceCard';
 import BigNumber from 'bignumber.js';
+import CryptoJS from 'crypto-js';
+
+// 模拟的 Pedersen 承诺函数
+function pedersenCommitment(message, randomness) {
+    // 注意：这只是一个模拟实现，不是真正的 Pedersen 承诺
+    return CryptoJS.SHA256(message + randomness).toString();
+  }
 
 // 模拟的员工保单数据
 const employeePolicies = [
@@ -38,10 +49,11 @@ const employeePolicies = [
     policyHolder: '0x9876543210987654321098765432109876543210',
     beneficiary: '0x1111111111111111111111111111111111111111',
     emergencyAddress: '0x2222222222222222222222222222222222222222',
-    companyName: "科技有限公司"
+    companyName: "Uniswap",
+    companyId: 3,
   },
   {
-    employeeName: "张三",
+    employeeName: "李四",
     contractAddress: '0x0987654321098765432109876543210987654321',
     isContractActive: false,
     initialTime: Math.floor(Date.now() / 1000) - 730 * 24 * 60 * 60, // 2 years ago
@@ -51,7 +63,8 @@ const employeePolicies = [
     policyHolder: '0x3333333333333333333333333333333333333333',
     beneficiary: '0x4444444444444444444444444444444444444444',
     emergencyAddress: '0x5555555555555555555555555555555555555555',
-    companyName: "贸易有限公司"
+    companyName: "AAVE",
+    companyId: 6,
   }
 ];
 
@@ -62,9 +75,14 @@ export default function EmployeePage() {
     key: '',
     password: ''
   });
+  const [socialSecurityId, setSocialSecurityId] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const textColor = useColorModeValue('gray.800', 'white');
+  const titleColor = useColorModeValue('white.800', 'white');
   const modalTextColor = "black";
+
+  const toast = useToast();
 
   const handleInputChange = (e) => {
     setSocialSecurityInfo({ ...socialSecurityInfo, [e.target.name]: e.target.value });
@@ -73,7 +91,7 @@ export default function EmployeePage() {
   // 生成随机密钥的函数
   const generateRandomKey = useCallback(() => {
     const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    const length = 20; // 你可以调整这个长度
+    const length = 32; // 你可以调整这个长度
     let result = '';
     for (let i = 0; i < length; i++) {
       result += characters.charAt(Math.floor(Math.random() * characters.length));
@@ -82,8 +100,36 @@ export default function EmployeePage() {
   }, []);
 
   const handleGenerateSocialSecurityId = () => {
-    // 这里应该是生成社保ID的逻辑
-    console.log("生成社保ID", socialSecurityInfo);
+    const { enterpriseId, key, password } = socialSecurityInfo;
+    
+    // 第一步：使用 SHA-256 哈希企业 ID 和密码的组合
+    const sha256Hash = CryptoJS.SHA256(enterpriseId + password).toString();
+    
+    // 第二步：使用 Pedersen 承诺（这里用模拟函数）结合 key 和 SHA-256 哈希结果
+    const pedersenHash = pedersenCommitment(sha256Hash, key);
+    
+    // 设置生成的社保 ID
+    setSocialSecurityId(pedersenHash);
+    
+    navigator.clipboard.writeText(pedersenHash).then(() => {
+        toast({
+          title: "复制成功",
+          description: `您的社保 ID 是: ${pedersenHash}, 已复制到粘贴板`,
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+        });
+      }).catch((err) => {
+        console.error('Failed to copy: ', err);
+        toast({
+          title: "复制失败",
+          description: `您的社保 ID 是: ${pedersenHash}, 已手动复制到粘贴板`,
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
+      });
+
     onClose();
   };
 
@@ -92,16 +138,80 @@ export default function EmployeePage() {
   const mockFormatAmount = (amount) => amount.toFixed(2);
   const mock_t = (cn, en) => cn; // 使用中文
 
+  const handleCopyKey = useCallback(() => {
+    navigator.clipboard.writeText(socialSecurityInfo.key).then(() => {
+      toast({
+        title: "复制成功",
+        description: "密钥已成功复制到剪贴板",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+    }).catch((err) => {
+      console.error('Failed to copy: ', err);
+      toast({
+        title: "复制失败",
+        description: "无法复制密钥，请手动复制",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    });
+  }, [socialSecurityInfo.key]);
+
+  // 新增状态和函数
+  const [claimInfo, setClaimInfo] = useState({ key: '', password: '' });
+  const [isClaimModalOpen, setIsClaimModalOpen] = useState(false);
+  const [claimProgress, setClaimProgress] = useState(0);
+  const [claimStatus, setClaimStatus] = useState('');
+
+  const handleClaimInputChange = (e) => {
+    setClaimInfo({ ...claimInfo, [e.target.name]: e.target.value });
+  };
+
+  const handleClaimFunds = useCallback(() => {
+    setIsClaimModalOpen(true);
+  }, []);
+
+  const handleConfirmClaim = useCallback(() => {
+    setClaimStatus('生成零知识证明中...');
+    setClaimProgress(33);
+
+    setTimeout(() => {
+      setClaimStatus('正在提交交易...');
+      setClaimProgress(66);
+
+      setTimeout(() => {
+        setClaimStatus('交易完成');
+        setClaimProgress(100);
+
+        setTimeout(() => {
+          setIsClaimModalOpen(false);
+          setClaimProgress(0);
+          setClaimStatus('');
+          toast({
+            title: "领取成功",
+            description: "社保已成功领取",
+            status: "success",
+            duration: 3000,
+            isClosable: true,
+          });
+        }, 1000);
+      }, 3000);
+    }, 3000);
+  }, [toast]);
+
   return (
     <Box className="container" py={8}>
       <VStack spacing={6} align="stretch">
-        <Heading as="h1" size="2xl" color={textColor} textAlign="center">我的保单列表</Heading>
+        <Heading as="h1" size="2xl" color={titleColor} textAlign="center">我的保单列表</Heading>
         <Button colorScheme="blue" onClick={onOpen} alignSelf="flex-end">
           生成社保ID
         </Button>
         <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6}>
           {employeePolicies.map((policy, index) => (
             <InsuranceCard
+              isEmployee={true}
               key={policy.contractAddress}
               insurance={policy}
               index={index}
@@ -113,7 +223,7 @@ export default function EmployeePage() {
               startWithdrawTime={policy.initialTime + 365 * 24 * 60 * 60} // 一年后开始提取
               curAvailableFunds={new BigNumber(policy.monthlyWithdrawal)} // 模拟当前可用资金为一个月的提取金额
               walletAddress="0x1111111111111111111111111111111111111111" // 模拟当前钱包地址
-              handleClaimFunds={mockFunction}
+              handleClaimFunds={handleClaimFunds}
               handleDeposit={mockFunction}
               handleWithdrawBalance={mockFunction}
               handleConvertToYieldAsset={mockFunction}
@@ -147,30 +257,44 @@ export default function EmployeePage() {
               />
             </FormControl>
             <FormControl mt={4}>
-              <FormLabel color={modalTextColor}>Key</FormLabel>
+              <FormLabel color={modalTextColor}>
+                Key
+              </FormLabel>
+              <Text color="red" fontSize="12px">
+                (请务必保存好，领取社保时需要)
+              </Text>
               <Input 
                 name="key" 
                 value={socialSecurityInfo.key} 
                 color={modalTextColor}
-                isReadOnly  // 设置为只读
                 bg="gray.100"  // 添加背景色以表明这是只读的
                 _placeholder={{ color: 'gray.500' }}
               />
               <HStack mt={2} spacing={2}>
                 <Button onClick={generateRandomKey} size="sm">生成随机Key</Button>
-                <Button onClick={() => navigator.clipboard.writeText(socialSecurityInfo.key)} size="sm">复制Key</Button>
+                <Button onClick={() => handleCopyKey()} size="sm">复制Key</Button>
               </HStack>
             </FormControl>
             <FormControl mt={4}>
               <FormLabel color={modalTextColor}>密码</FormLabel>
-              <Input 
-                name="password" 
-                type="password" 
-                value={socialSecurityInfo.password} 
-                onChange={handleInputChange} 
-                color={modalTextColor}
-                _placeholder={{ color: 'gray.500' }}
-              />
+              <Text color="red" fontSize="12px">
+                (请务必保存好，领取社保时需要)
+              </Text>
+              <InputGroup>
+                <Input 
+                  name="password" 
+                  type={showPassword ? "text" : "password"}
+                  value={socialSecurityInfo.password} 
+                  onChange={handleInputChange} 
+                  color={modalTextColor}
+                  _placeholder={{ color: 'gray.500' }}
+                />
+                <InputRightElement width="4.5rem">
+                  <Button h="1.75rem" size="sm" onClick={() => setShowPassword(!showPassword)}>
+                    {showPassword ? "隐藏" : "显示"}
+                  </Button>
+                </InputRightElement>
+              </InputGroup>
             </FormControl>
           </ModalBody>
 
@@ -179,6 +303,51 @@ export default function EmployeePage() {
               生成
             </Button>
             <Button variant="ghost" onClick={onClose}>取消</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* 新增领取社保的模态框 */}
+      <Modal isOpen={isClaimModalOpen} onClose={() => setIsClaimModalOpen(false)}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader color={modalTextColor}>领取社保</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <FormControl>
+              <FormLabel color={modalTextColor}>Key</FormLabel>
+              <Input 
+                name="key" 
+                value={claimInfo.key} 
+                onChange={handleClaimInputChange} 
+                color={modalTextColor}
+                _placeholder={{ color: 'gray.500' }}
+              />
+            </FormControl>
+            <FormControl mt={4}>
+              <FormLabel color={modalTextColor}>密码</FormLabel>
+              <Input 
+                name="password" 
+                type="password"
+                value={claimInfo.password} 
+                onChange={handleClaimInputChange} 
+                color={modalTextColor}
+                _placeholder={{ color: 'gray.500' }}
+              />
+            </FormControl>
+            {claimStatus && (
+              <VStack mt={4} align="stretch">
+                <Text color={textColor}>{claimStatus}</Text>
+                <Progress value={claimProgress} size="sm" colorScheme="blue" />
+              </VStack>
+            )}
+          </ModalBody>
+
+          <ModalFooter>
+            <Button colorScheme="blue" mr={3} onClick={handleConfirmClaim} isDisabled={claimProgress > 0}>
+              确认领取
+            </Button>
+            <Button variant="ghost" onClick={() => setIsClaimModalOpen(false)} isDisabled={claimProgress > 0}>取消</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
